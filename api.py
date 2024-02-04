@@ -7,27 +7,54 @@ class APIHandler:
     def __init__(self):
         self.MAIN_URL = os.getenv('MAIN_URL')
 
+    def get_user_links(self, telegram_user_id):
+        url = self.MAIN_URL + "/api/links/" + str(telegram_user_id)
+
+        response = requests.get(url)
+
+        user_links = {}
+
+        if response.status_code == 200:
+            user_links = response.json()
+        else:
+            print("Ошибка при запросе:", response.status_code)
+
+        return user_links
+
+    def get_tasks(self, telegram_user_id):
+        url = self.MAIN_URL + "/api/tasks/" + str(telegram_user_id)
+
+        response = requests.get(url)
+
+        user_links = {}
+
+        if response.status_code == 200:
+            user_links = response.json()
+        else:
+            print("Ошибка при запросе:", response.status_code)
+
+        return user_links
+
     def get_user_profile(self, telegram_user_id):
-        url = self.MAIN_URL + "/api/user-profile/" + telegram_user_id + "/"
+        url = self.MAIN_URL + "/api/user-profile/" + str(telegram_user_id)
 
         response = requests.get(url)
 
         user_profile = {}
 
         if response.status_code == 200:
-            data = response.json()
             user_profile = response.json()
-            print("Информация о пользователе:")
-            print("Имя:", data.get('first_name'))
-            print("Фамилия:", data.get('last_name'))
-            print("Направление:", data.get('direction'))
-            print("Количество ссылок за все время:", data.get('total_links'))
-            print("Подтвержденные за все время:", data.get('total_approved'))
-            print("Подтвержденные за текущий месяц:", data.get('total_approved_current_month'))
         else:
             print("Ошибка при запросе:", response.status_code)
 
-        return user_profile
+        response = "Имя: " + str(user_profile.get('first_name')) + "\n" \
+        "Фамилия: " + str(user_profile.get('last_name')) + "\n" \
+        "Направление: " + str(user_profile.get('direction')) + "\n" \
+        "Количество ссылок за все время: " + str(user_profile.get('total_links')) + "\n" \
+        "Подтвержденные за все время: " + str(user_profile.get('total_approved')) + "\n" \
+        "Подтвержденные за текущий месяц: " + str(user_profile.get('total_approved_current_month')) + "\n"
+
+        return response
 
     def send_link(self, telegram_user_id, link):
         url = self.MAIN_URL + "/api/send_link/"
@@ -44,11 +71,25 @@ class APIHandler:
 
         return successful
 
-    def login(self, telegram_user_id, phone_number):
-        url = self.MAIN_URL + "/api/auth/signin/"
+    def verify(self, telegram_user_id, phone_number):
+        url = self.MAIN_URL + "/api/auth/verify/"
 
         response = requests.post(url, data={
             "phone_number": phone_number,
+            "telegram_user_id": telegram_user_id,
+        })
+
+        successful = False
+
+        if response.status_code == 200:
+            successful = True
+
+        return successful
+
+    def signin(self, telegram_user_id):
+        url = self.MAIN_URL + "/api/auth/signin/"
+
+        response = requests.post(url, data={
             "telegram_user_id": telegram_user_id,
         })
 
