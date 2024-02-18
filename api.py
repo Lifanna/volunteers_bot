@@ -7,6 +7,8 @@ class APIHandler:
     def __init__(self):
         self.MAIN_URL = os.getenv('MAIN_URL')
 
+        print("DDDD:", self.MAIN_URL)
+
     def get_user_links(self, telegram_user_id):
         url = self.MAIN_URL + "/api/links/" + str(telegram_user_id)
 
