@@ -18,7 +18,9 @@ from datetime import datetime
 env = dotenv.load_dotenv()
 
 BOT_TOKEN = os.getenv('BOT_TOKEN')
-WEBSOCKET_URL = os.getenv('WEBSOCKET_URL')
+WEBSOCKET_URL = "ws://localhost:8000"
+# WEBSOCKET_URL = "ws://91.107.127.133"
+# WEBSOCKET_URL = "ws://192.168.1.71:8000"
 
 logging.basicConfig(level=logging.INFO)
 
@@ -60,13 +62,16 @@ async def contact_received(message: types.Message):
     result = api_handler.verify(message.from_user.id, contact.phone_number)
 
     if result:
-        await message.answer(f"Спасибо за предоставленный контакт")
+        await message.answer(
+            "Спасибо за предоставленный контакт",
+            reply_markup=keyboards.menu_btns
+        )
         await States.init.set()
     else:
         await message.answer(f"Пользователь не найден")
 
 
-@dp.message_handler(lambda message: message.text.lower() == 'отправить ссылки', state=States.init)
+@dp.message_handler(lambda message: message.text.lower() == 'отправить ссылки', state="*")
 async def process_start_command(message: types.Message, state: FSMContext):
     api_handler = APIHandler()
     user_links = api_handler.get_user_links(message.from_user.id)
@@ -94,30 +99,36 @@ async def send_link(message: types.Message, state: FSMContext):
     result = api_handler.send_link(message.from_user.id, link)
 
     if result:
-        await message.answer(f"Ссылка успешно отправлена, ожидайте подтверждения")
+        await message.answer(f"Ссылка успешно отправлена, ожидайте подтверждения", reply_markup=keyboards.menu_btns)
     else:
         await message.answer("Произошла ошибка!")
 
     await States.init.set()
 
 
-@dp.message_handler(lambda message: message.text.lower() == 'рейтинг', state=States.init)
-async def process_start_command(message: types.Message):
+@dp.message_handler(lambda message: message.text.lower() == 'рейтинг', state="*")
+async def process_rating(message: types.Message):
     api_handler = APIHandler()
 
-    await message.answer("Рейтинг в работе")
+    user_scores = api_handler.get_rating()
+    for user_score in user_scores:
+        # Преобразование строки в объект даты
+        message_text = "Рейтинг волонтеров #\n*%s* *%s*\nБаллы:%s\n"\
+            %(user_score.get('user').get('first_name'), user_score.get('user').get('last_name'), user_score.get('score'),)
+
+        await bot.send_message(message.from_user.id, message_text, parse_mode= 'Markdown', reply_markup=keyboards.menu_btns)
 
 
-@dp.message_handler(lambda message: message.text.lower() == 'профиль', state=States.init)
+@dp.message_handler(lambda message: message.text.lower() == 'профиль', state="*")
 async def process_start_command(message: types.Message):
     api_handler = APIHandler()
 
     user_profile_text = api_handler.get_user_profile(str(message.from_user.id))
 
-    await message.answer(user_profile_text)
+    await message.answer(user_profile_text, reply_markup=keyboards.menu_btns)
 
 
-@dp.message_handler(lambda message: message.text.lower() == 'задания', state=States.init)
+@dp.message_handler(lambda message: message.text.lower() == 'задания', state="*")
 async def process_start_command(message: types.Message):
     api_handler = APIHandler()
     tasks = api_handler.get_tasks(message.from_user.id)
@@ -147,21 +158,31 @@ async def process_start_command(message: types.Message):
         await bot.send_message(message.from_user.id, message_text, reply_markup=task_kb, parse_mode= 'Markdown')
 
 
-async def send_data_via_websocket(data):
-    async with websockets.connect(WEBSOCKET_URL + '/ws/') as websocket:
-        await websocket.send(data)
+# async def send_data_via_websocket(data):
+#     async with websockets.connect(WEBSOCKET_URL + '/ws/') as websocket:
+#         await websocket.send(data)
 
 
-@dp.callback_query_handler(lambda query: query.data.startswith('task_'))
+@dp.callback_query_handler(lambda query: query.data.startswith('task_'), state="*")
 async def execute_task_callback(query: types.CallbackQuery):
+    print("QWEWQEQWEQWEQWE")
     task_id = query.data.split('_')[1]
+    print("QWEWQEQWEQWEQWE", task_id)
 
     data_to_send = {
         "user": str(query.from_user.id),
-        "task_id": str(task_id)
+        "task": str(task_id)
     }
 
-    await send_data_via_websocket(json.dumps(data_to_send))
+    api_handler = APIHandler()
+
+    # await send_data_via_websocket(json.dumps(data_to_send))
+    successful = api_handler.send_task(data_to_send)
+    await States.init.set()
+    if successful:
+        await bot.send_message(query.from_user.id, 'Задание взято на выполнение', reply_markup=keyboards.menu_btns)
+    else:
+        await bot.send_message(query.from_user.id, 'Произошла ошибка', reply_markup=keyboards.menu_btns)
 
 
 async def send_telegram_message(user_id, message_text):
@@ -238,6 +259,6 @@ async def start_bot():
 
 if __name__ == '__main__':
     event_loop = asyncio.get_event_loop()
-    event_loop.create_task(receive_data())
+    # event_loop.create_task(receive_data())
     event_loop.run_until_complete(start_bot())
     event_loop.run_forever()

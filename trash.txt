@@ -1,0 +1,29 @@
+        RewriteEngine on
+#       RewriteCond %{SERVER_NAME} =site.addns.org [OR]
+#       RewriteCond %{SERVER_NAME} =www.site.addns.org
+#       RewriteRule ^ https://%{SERVER_NAME}%{REQUEST_URI} [END,NE,R=permanent]
+        RewriteCond %{HTTP:UPGRADE} ^WebSocket$ [NC,OR]
+        RewriteCond %{HTTP:CONNECTION} ^Upgrade$ [NC]
+        RewriteRule .* ws://127.0.0.1:8001%{REQUEST_URI} [P,QSA,L]
+#       ProxyPass /ws ws://127.0.0.1:8000/
+#       ProxyPassReverse /ws ws://127.0.0.1:8000/
+        #ProxyPass /ws ws://91.107.127.133/
+        #ProxyPassReverse /ws ws://91.107.127.133/
+
+
+
+[Unit]
+Description=daphne daemon for volunteers_project
+After=network.target
+
+[Service]
+User=root
+Group=www-data
+WorkingDirectory=/var/www/api/volunteers_bot_api/volunteers_project/volunteers_project
+ExecStart=/var/www/api/volunteers_bot_api/env/bin/daphne -b 0.0.0.0 -p 8001 volunteers_project.asgi:application
+
+# Not sure if should use 'on-failure' or 'always'. 
+Restart=on-failure
+
+[Install]
+WantedBy=multi-user.target

@@ -5,7 +5,8 @@ dotenv.load_dotenv()
 
 class APIHandler:
     def __init__(self):
-        self.MAIN_URL = os.getenv('MAIN_URL')
+        self.MAIN_URL = "http://91.107.127.133"
+        # self.MAIN_URL = "http://localhost:8000"
 
         print("DDDD:", self.MAIN_URL)
 
@@ -22,6 +23,20 @@ class APIHandler:
             print("Ошибка при запросе:", response.status_code)
 
         return user_links
+
+    def get_rating(self):
+        url = self.MAIN_URL + "/api/rating/"
+
+        response = requests.get(url)
+
+        user_scores = {}
+
+        if response.status_code == 200:
+            user_scores = response.json()
+        else:
+            print("Ошибка при запросе:", response.status_code)
+
+        return user_scores
 
     def get_tasks(self, telegram_user_id):
         url = self.MAIN_URL + "/api/tasks/" + str(telegram_user_id)
@@ -98,6 +113,20 @@ class APIHandler:
         successful = False
 
         if response.status_code == 200:
+            successful = True
+
+        return successful
+
+    def send_task(self, task_json):
+        url = self.MAIN_URL + "/api/tasks/new/"
+
+        response = requests.post(url, data=task_json)
+
+        successful = False
+
+        print(response.status_code)
+
+        if response.status_code == 201:
             successful = True
 
         return successful
