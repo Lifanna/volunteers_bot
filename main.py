@@ -28,6 +28,8 @@ bot = Bot(token=BOT_TOKEN)
 storage = MemoryStorage()
 dp = Dispatcher(bot, storage=storage)
 
+offset = 0
+
 
 class States(StatesGroup):
     init = State()
@@ -74,14 +76,75 @@ async def contact_received(message: types.Message):
 @dp.message_handler(lambda message: message.text.lower() == 'отправить ссылки', state="*")
 async def process_start_command(message: types.Message, state: FSMContext):
     api_handler = APIHandler()
-    user_links = api_handler.get_user_links(message.from_user.id)
+    global offset
+    offset = 0
+    user_links = api_handler.get_user_links(message.from_user.id, offset)
 
+    offset += 2
 
     await message.answer("Мои ссылки")
     for user_link in user_links:
         await message.answer("%s\nСтатус: %s"%(user_link.get('link'), user_link.get('status')))
 
+    print(user_links, len(user_links))
+    if len(user_links) == 2:
+        await message.answer("далее", reply_markup=keyboards.LOAD_MORE_BTN)
+
     await message.answer("Действия", reply_markup=keyboards.SEND_LINK_BTN)
+
+
+@dp.message_handler(lambda message: message.text.lower() == 'мои задания', state="*")
+async def process_start_command(message: types.Message, state: FSMContext):
+    api_handler = APIHandler()
+    user_tasks = api_handler.get_user_tasks(message.from_user.id)
+
+    await message.answer("Мои задания")
+    for user_task in user_tasks:
+        ACCOMPLISH_TASK_BTN_OBJECT = InlineKeyboardButton('Завершить задание', callback_data=f"accomplish_task_{user_task.get('id')}")
+
+        ACCOMPLISH_TASK_BTN = InlineKeyboardMarkup().add(
+            ACCOMPLISH_TASK_BTN_OBJECT
+        )
+
+        await message.answer("%s\nСтатус: %s"%(user_task.get('task'), user_task.get('status')), reply_markup=ACCOMPLISH_TASK_BTN)
+
+    print(user_tasks, len(user_tasks))
+
+
+@dp.callback_query_handler(lambda query: query.data.startswith('accomplish_task_'), state="*")
+async def execute_task_callback(query: types.CallbackQuery):
+    user_task_id = query.data.split('_')[-1]
+
+    data_to_send = {
+        "user_task_id": user_task_id,
+    }
+
+    api_handler = APIHandler()
+
+    successful = api_handler.send_accomplished_task(data_to_send)
+    await States.init.set()
+    if successful:
+        await bot.send_message(query.from_user.id, 'Задание выполнено!', reply_markup=keyboards.menu_btns)
+    else:
+        await bot.send_message(query.from_user.id, 'Произошла ошибка', reply_markup=keyboards.menu_btns)
+
+
+@dp.callback_query_handler(text='load_more', state="*")
+async def process_start_command(callback_query: types.CallbackQuery, state: FSMContext):
+    api_handler = APIHandler()
+    global offset
+    user_links = api_handler.get_user_links(callback_query.from_user.id, offset)
+
+    offset += 2
+
+    for user_link in user_links:
+        await bot.send_message(callback_query.from_user.id, "%s\nСтатус: %s"%(user_link.get('link'), user_link.get('status')))
+
+    if len(user_links) == 2:
+        await bot.send_message(callback_query.from_user.id, "далее", reply_markup=keyboards.LOAD_MORE_BTN)
+        await bot.send_message(callback_query.from_user.id, "Действия", reply_markup=keyboards.SEND_LINK_BTN)
+    else:
+        await bot.send_message(callback_query.from_user.id, "Список ссылок закончился")
 
 
 @dp.callback_query_handler(text='send_link', state=States.init)
@@ -165,7 +228,6 @@ async def process_start_command(message: types.Message):
 
 @dp.callback_query_handler(lambda query: query.data.startswith('task_'), state="*")
 async def execute_task_callback(query: types.CallbackQuery):
-    print("QWEWQEQWEQWEQWE")
     task_id = query.data.split('_')[1]
     print("QWEWQEQWEQWEQWE", task_id)
 

@@ -10,8 +10,8 @@ class APIHandler:
 
         print("DDDD:", self.MAIN_URL)
 
-    def get_user_links(self, telegram_user_id):
-        url = self.MAIN_URL + "/api/links/" + str(telegram_user_id)
+    def get_user_links(self, telegram_user_id, offset):
+        url = self.MAIN_URL + "/api/links/" + str(telegram_user_id) + "/" + str(offset)
 
         response = requests.get(url)
 
@@ -130,3 +130,31 @@ class APIHandler:
             successful = True
 
         return successful
+
+    def send_accomplished_task(self, task_json):
+        url = self.MAIN_URL + "/api/tasks/update/"
+
+        response = requests.post(url, data=task_json)
+
+        successful = False
+
+        print(response.status_code)
+
+        if response.status_code == 200:
+            successful = True
+
+        return successful
+
+    def get_user_tasks(self, telegram_user_id):
+        url = self.MAIN_URL + "/api/user_tasks/" + str(telegram_user_id)
+
+        response = requests.get(url)
+
+        user_tasks = {}
+
+        if response.status_code == 200:
+            user_tasks = response.json()
+        else:
+            print("Ошибка при запросе:", response.status_code)
+
+        return user_tasks
